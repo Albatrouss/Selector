@@ -197,7 +197,7 @@ my_environment = Environment(my_problem)
 statecount = my_environment.environment.observation_space.shape[0]
 actioncount = my_environment.environment.action_space.n
 
-myselector = Selector.Selector("taggeddata.csv")
+myselector = Selector.Selector(["taggeddata.csv"])
 
 my_agent = Agent(statecount, actioncount, myselector)
 startingstates = []

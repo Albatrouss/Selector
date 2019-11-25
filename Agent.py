@@ -23,9 +23,9 @@ class Brain:
     def _createModel(self):
         model = Sequential()
 
-        model.add(Dense(output_dim=128, activation='relu', input_dim=statecount))
-        model.add(Dense(output_dim=128, activation='relu', input_dim=statecount))
-        model.add(Dense(output_dim=actioncount, activation='linear'))
+        model.add(Dense(output_dim=128, activation='relu', input_dim=self.statecount))
+        model.add(Dense(output_dim=128, activation='relu', input_dim=self.statecount))
+        model.add(Dense(output_dim=self.actioncount, activation='linear'))
 
         opt = RMSprop(lr=0.00025)
         model.compile(loss='mse', optimizer=opt)
