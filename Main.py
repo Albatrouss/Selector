@@ -8,6 +8,8 @@ import lunar_lander as ll
 from Environment import Environment
 from Agent import Agent
 from Selector import Selector
+from gym import wrappers
+
 ############################################################ Main
 #---------------define Environments-------------------------
 my_problem1 = ll.LunarLanderModable()
@@ -38,9 +40,9 @@ statecount2 = my_environment2.environment.observation_space.shape[0]
 actioncount2 = my_environment2.environment.action_space.n
 
 Agent1 = Agent(statecount1, actioncount1)
-Agent1.loadModel("ll1.h5",1)
+#Agent1.loadModel("ll1.h5",1)
 Agent2 = Agent(statecount2, actioncount2)
-Agent2.loadModel("ll2.h5",1)
+#Agent2.loadModel("ll2.h5",1)
 
 #------------------------init Selector ------------------
 
@@ -52,7 +54,7 @@ i = 0
 verbose = True
 train = True
 try:
-    while i<10000:
+    while i<500:
           env = random.randint(0, 1)
           if env == 0:
              my_environment = my_environment1
@@ -60,11 +62,11 @@ try:
           if env == 1:
              my_environment = my_environment2
              print("Environment loaded: env_params2")
-          my_environment.run(selector, train, verbose)
+          my_environment.run(selector, train, verbose, render=False)
           i = i + 1
           print(i)
 finally:
      if train:
-          Agent1.brain.model.save("ll1.1.h5")
-          Agent2.brain.model.save("ll2.1.h5")
+          Agent1.brain.model.save("ll1.2.h5")
+          Agent2.brain.model.save("ll2.2.h5")
      print("Savedanddone")

@@ -2,7 +2,8 @@
 # Author: Daniel Hämmerle
 
 import random, numpy, math, gym
-from keras.models import Sequential
+import tensorflow as tf
+from keras.models import *
 from keras.layers import *
 from keras.optimizers import *
 
@@ -22,13 +23,12 @@ class Brain:
 
     def _createModel(self):
         model = Sequential()
-
         model.add(Dense(output_dim=128, activation='relu', input_dim=self.statecount))
-        model.add(Dense(output_dim=128, activation='relu', input_dim=self.statecount))
+        model.add(Dense(output_dim=128, activation='relu', input_dim=128))
         model.add(Dense(output_dim=self.actioncount, activation='linear'))
-
         opt = RMSprop(lr=0.00025)
         model.compile(loss='mse', optimizer=opt)
+        print(model.summary())
         return model
 
     def _loadModel(self, toload):
