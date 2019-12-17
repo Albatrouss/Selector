@@ -57,9 +57,9 @@ agent2 = Agent(state_count2, action_count2, head_count,
 
 if not train:
     print("loading agents")
-    agent1.brain.overallmodell.load_weights(
+    agent1.brain.total_model.load_weights(
         "models/Trueuncert1_hc10_trainepisodes200_time2019-12-12T17:23:30.800531.h5")
-    agent2.brain.overallmodell.load_weights(
+    agent2.brain.total_model.load_weights(
         "models/Trueuncert2_hc10_trainepisodes200_time2019-12-12T17:23:32.381833.h5")
 
 # ------------------------init Selector ------------------
@@ -109,9 +109,9 @@ try:
 
 finally:
     timestamp = str(datetime.datetime.fromtimestamp(time.time()).isoformat())
-    agent1.brain.overallmodell.save(
+    agent1.brain.total_model.save(
         "models/{}uncert1_hc{}_trainepisodes{}_time{}.h5".format(finished, head_count, train_episodes, timestamp))
-    agent2.brain.overallmodell.save(
+    agent2.brain.total_model.save(
         "models/{}uncert2_hc{}_trainepisodes{}_time{}.h5".format(finished, head_count, train_episodes, timestamp))
     for agent in selector.agents:
         agent.logger.close()

@@ -59,7 +59,7 @@ class Selector:
         agent_num, best_action, std = min(action_std, key=lambda k: k[2])
         self.selected_agent = self.agents[agent_num]
         # select a head to follow for this episode
-        self.selected_head_num = numpy.random.choice(range(self.selected_agent.headcount))
+        self.selected_head_num = numpy.random.choice(range(self.selected_agent.head_count))
         return agent_num, self.selected_head_num, std
 
     def observe(self, sample):
