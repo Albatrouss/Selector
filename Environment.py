@@ -4,25 +4,26 @@ class Environment:
 
     def run(self, selector, train, verbose, render):
         state = self.environment.reset()
-        Reward = 0
-        selector.select(state)
+        reward = 0
+        selected = selector.select(state)
         while True:
             if render:
                 self.environment.render()
             action = selector.act(state)
-            newstate, currentreward, done, info = self.environment.step(action)
+            new_state, current_reward, done, info = self.environment.step(action)
 
             if done:
-                newstate = None
+                new_state = None
 
             if train:
-                selector.observe((state, action, currentreward, newstate))
+                selector.observe((state, action, current_reward, new_state))
                 selector.replay()
 
-            state = newstate
-            Reward += currentreward
+            state = new_state
+            reward += current_reward
 
             if done:
                 break
         if verbose:
-            print("Reward achieved: ", Reward)
+            print("Reward achieved: ", reward)
+            return selected, reward
