@@ -39,7 +39,6 @@ class Brain:
         self.model.fit(x, y, batch_size=64, epochs=epoch, verbose=verbose)
 
     def predict(self, state):
-        print(state)
         return self.model.predict(state)
 
     def predict_one(self, state):

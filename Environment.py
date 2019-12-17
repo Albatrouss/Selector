@@ -21,9 +21,8 @@ class Environment:
 
             state = new_state
             reward += current_reward
-
             if done:
                 break
         if verbose:
             print("Reward achieved: ", reward)
-            return selected, reward
+        return selected, reward

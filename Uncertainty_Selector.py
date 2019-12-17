@@ -17,25 +17,18 @@ class Selector:
         self.selected_agent = self.agents[agent_num]
         self.train = True
 
-    '''
-    we have different modes:
-        mode :  'train': only return on selected agent, use normal act
-                'continuous': select for every action the most sure agent, do not use normal act, only act_on_model
-                'explicit': only select a new agent when the function select is called
-    '''
-
-    def act(self, state, mode='explicit'):
-        if mode == 'explicit':
-            action, std = self.selected_agent.act(state)
+    def act(self, state, mode='preselect'):
+        if mode == 'preselect':
+            action = self.selected_agent.act_on_head(state=state, head_num=self.selected_head_num)
             return action
         if mode == 'continuous':
             action_std = []
             for i in range(len(self.agents)):
-                agent = agents[i]
+                agent = self.agents[i]
                 action, std = agent.act(state)
                 action_std.append((i, action, std))
 
-            # choose agent with lowest standard deviation TODO rework with seleciton criteria
+            # choose agent with lowest standard deviation TODO rework with selection criteria
             agent_num, best_action, std = min(action_std, key=lambda k: k[2])
             self.selected_agent = self.agents[agent_num]
             # select a head to follow
@@ -47,6 +40,11 @@ class Selector:
 
     def select(self, state):
         if self.train:
+            #select a head to use for the episode
+            #todo remove, only for getting a standard deviation purpose
+            self.selected_agent.act(state)
+            #end todo
+            self.selected_head_num = numpy.random.choice(range(self.selected_agent.head_count))
             return None
         action_std = []
         for i in range(len(self.agents)):
@@ -54,8 +52,8 @@ class Selector:
             action, std = agent.act(state)
             action_std.append((i, action, std))
 
-        # choose agent with lowerst standard deviation
-        print(action_std)
+        # choose agent with lowest standard deviation
+        #print(action_std)
         agent_num, best_action, std = min(action_std, key=lambda k: k[2])
         self.selected_agent = self.agents[agent_num]
         # select a head to follow for this episode
