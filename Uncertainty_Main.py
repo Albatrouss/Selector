@@ -13,8 +13,8 @@ from Logger import Logger
 verbose = True
 render = True
 train = True
-train_episodes = 200
-test_episodes = 0
+train_episodes = 500
+test_episodes = 200
 head_count = 10
 
 # ---------------------define Loggers ------------------------------------------------------------
