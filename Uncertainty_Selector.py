@@ -1,8 +1,4 @@
 import numpy
-import pandas as pd
-import sys
-from sklearn.neighbors import KNeighborsClassifier
-
 
 class Selector:
     # agents is a list of agents that correspond to the data
@@ -42,10 +38,10 @@ class Selector:
         if self.train:
             #select a head to use for the episode
             #todo remove, only for getting a standard deviation purpose
-            self.selected_agent.act(state)
+            _, std = self.selected_agent.act(state)
             #end todo
             self.selected_head_num = numpy.random.choice(range(self.selected_agent.head_count))
-            return None
+            return self.selected_agent.name, self.selected_head_num, std
         action_std = []
         for i in range(len(self.agents)):
             agent = self.agents[i]

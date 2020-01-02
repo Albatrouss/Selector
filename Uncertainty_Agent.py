@@ -55,28 +55,50 @@ class Brain:
         """loads weights for the total_model into the model, therefore initializing all the individual head models"""
         self.total_model.load_weights(saved_model)
 
-    def train(self, x, y, head, epoch=1, verbose=0):
-        """fits a head with training data"""
-        self.models[head].fit(x, y, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
-
     def train_with_mask(self, x, y, mask, epoch=1, verbose=0):
         """fits a head with training data"""
         sample_weights = {"head_{}".format(x): w for x, w in enumerate(mask)}
         self.total_model.fit(x, y, sample_weight=sample_weights, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
 
-    def predict_ensemble(self, state):
-        """return the average and the standard deviation of the predictions of all heads combines """
+    def predict_ensemble(self, state, mode='voting', std='normal', head_num=None):
+        """
+        return the average and the standard deviation of the predictions of all heads combines
+
+        mode:   'average': returns the action based of the average of all predictions
+                'voting': returns the action based of majority voting of all predicitons
+                'single_head': returns prediction of a specific single head
+
+        std:    'normal': returns the average of the standard deviations over all axes
+                'square': returns the average of the squared standard deviations over all axes
+
+        """
         predictions = []
-        for model in self.models:
-            predictions.append(model.predict(state.reshape(1, self.state_count)).flatten())
-        newstd = self.get_std_punished(predictions)
-        pstd = self.get_std(predictions)
-        self.logger.add_data([newstd, pstd, numpy.average(predictions, axis=0)])
-        return numpy.average(predictions, axis=0), newstd
+        prediction = self.total_model.predict(state.reshape(1, self.state_count))
+        prediction = numpy.array(prediction).flatten()
+
+        for i in range(0, self.head_count, 1):
+            predictions.append(prediction[i * self.action_count: (i + 1) * self.action_count])
+
+        stddev = None
+        if std == 'squared':
+            stddev = self.get_std_punished(predictions)
+        if std == 'normal':
+            stddev = self.get_std(predictions)
+        if mode == 'average':
+            # todo: adapt self.logger.add_data([newstd, pstd, numpy.average(predictions, axis=0)])
+            return numpy.argmax(numpy.average(predictions, axis=0))
+        if mode == 'voting':
+            # todo adapt self.logger.add_data([newstd, pstd, numpy.average(predictions, axis=0)])
+            list_of_actions = [numpy.argmax(p) for p in predictions]
+            majority_vote = max(set(list_of_actions), key=list_of_actions.count)
+            return majority_vote, stddev
+        if mode == 'single_head':
+            return numpy.argmax(predictions[head_num]), stddev
 
     def predict_one(self, state, head):
         a = self.models[head].predict(state.reshape(1, self.state_count)).flatten()
         return a
+
     def predict(self, state, head):
         """returns predictions of one head for an array of states"""
         return self.models[head].predict(state)
@@ -88,6 +110,13 @@ class Brain:
     def get_std_punished(self, predictions):
         """ punishes higher standard deviations by squaring them before averaging them out"""
         return numpy.average([x ** 2 for x in numpy.std(predictions, axis=0)])
+
+
+'''
+    def train(self, x, y, head, epoch=1, verbose=0):
+        """fits a head with training data"""
+        self.models[head].fit(x, y, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
+'''
 
 
 class Memory:
@@ -107,7 +136,8 @@ class Memory:
                 self.samples[m].append(sample)
             if len(self.samples[m]) > self.memory_capacity:
                 self.samples[m].pop(0)'''
-        mask = numpy.random.choice([0.00000000001, 1], size=self.head_count, p=[1 - SHARED_EXPERIENCE, SHARED_EXPERIENCE])
+        mask = numpy.random.choice([0.00000000001, 1], size=self.head_count,
+                                   p=[1 - SHARED_EXPERIENCE, SHARED_EXPERIENCE])
         self.samples.append((sample, mask))
 
     def sample(self, n):
@@ -138,8 +168,7 @@ class Agent:
     def act(self, state):
         """gets a prediction from all the heads, returns strongest one as well as the standard deviation amongst the
         heads """
-        p, std = self.brain.predict_ensemble(state)
-        return numpy.argmax(p), std
+        return self.brain.predict_ensemble(state)
 
     def observe(self, sample):
         """adds a sample to memory"""

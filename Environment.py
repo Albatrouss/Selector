@@ -5,7 +5,7 @@ class Environment:
     def run(self, selector, train, verbose, render):
         state = self.environment.reset()
         reward = 0
-        selected = selector.select(state)
+        selected, _, std = selector.select(state)
         while True:
             if render:
                 self.environment.render()
@@ -25,4 +25,4 @@ class Environment:
                 break
         if verbose:
             print("Reward achieved: ", reward)
-        return selected, reward
+        return selected, reward, std
