@@ -76,7 +76,7 @@ selectorsingle = Selector([agent3])
 # ---------------------------run-----------------------------------
 def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name):
     # train
-    train_test_logger = Logger(name=name, filename="test_train_log")
+    train_test_logger = Logger(name=name, filename="test_train_log_{}".format(name))
     train_test_logger.add_data(["name", "entry_number", "selected or train", "reward", "standard deviation"])
     entrynr = 0
     try:
