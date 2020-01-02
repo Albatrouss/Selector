@@ -21,10 +21,10 @@ name = sys.argv[1]
 #print(name)
 
 # ---------------------define Loggers ------------------------------------------------------------
-main_logger = Logger(name="Main_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-main_logger.add_data(["Episode_num; Environment_num;Agent_num;Head_num; Reward; Timestamp"])
-train_logger1 = Logger(name="training1", filename="1_outcome.csv")
-train_logger2 = Logger(name="training2", filename="2_outcome.csv")
+#main_logger = Logger(name="Main_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
+#main_logger.add_data(["Episode_num; Environment_num;Agent_num;Head_num; Reward; Timestamp"])
+#train_logger1 = Logger(name="training1", filename="1_outcome.csv")
+#train_logger2 = Logger(name="training2", filename="2_outcome.csv")
 # ---------------define Environments-------------------------
 my_problem1 = ll.LunarLanderModable()
 my_problem1.seed(42)
