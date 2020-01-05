@@ -21,7 +21,7 @@ class Environment:
 
             state = new_state
             reward += current_reward
-            if reward < -2000:
+            if reward < -1000:
                 break
             if done:
                 break
