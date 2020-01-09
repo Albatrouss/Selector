@@ -31,6 +31,7 @@ class Brain:
         init = "glorot_uniform"
         init_head = "glorot_uniform"
         inputs = Input(shape=(self.state_count,))
+
         # create the layers that learn the gane
         d1 = Dense(64, activation="relu", name="dense_1_shared",
                    kernel_initializer=init)(inputs)

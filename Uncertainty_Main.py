@@ -94,8 +94,8 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
             env_num, my_environment = random.choice(list(enumerate(environments)))
             selected, reward, std = my_environment.run(selectorspecific, train=False, verbose=False, render=render)
             train_test_logger.add_data(
-                [str(name), str(entrynr), "test:specific:{}/{}".format(selected-1, env_num), str(reward), str(std),
-                 str((selected-1) == env_num)])
+                [str(name), str(entrynr), "test:specific:{}/{}".format(selected, env_num), str(reward), str(std),
+                 str(selected == env_num)])
             entrynr += 1
             print(entrynr)
         # single agent
