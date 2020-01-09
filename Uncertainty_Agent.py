@@ -125,8 +125,7 @@ class Memory:
     def __init__(self, memory_capacity, head_count):
         self.memory_capacity = memory_capacity
         self.head_count = head_count
-        random.seed(42)  # for reproducibility
-        # self.samples = [[] for i in range(self.head_count)]
+        random.seed(int(time.time()))
         self.samples = []
 
     def add(self, sample):

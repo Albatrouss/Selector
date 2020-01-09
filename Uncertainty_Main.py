@@ -18,18 +18,12 @@ train_episodes = 500
 test_episodes = 100
 head_count = 10
 name = sys.argv[1]
-#print(name)
 
-# ---------------------define Loggers ------------------------------------------------------------
-#main_logger = Logger(name="Main_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-#main_logger.add_data(["Episode_num; Environment_num;Agent_num;Head_num; Reward; Timestamp"])
-#train_logger1 = Logger(name="training1", filename="1_outcome.csv")
-#train_logger2 = Logger(name="training2", filename="2_outcome.csv")
 # ---------------define Environments-------------------------
 my_problem1 = ll.LunarLanderModable()
-my_problem1.seed(42)
+my_problem1.seed(int(time.time()))
 my_problem2 = ll.LunarLanderModable()
-my_problem2.seed(42)
+my_problem2.seed(int(time.time()))
 env_params1 = {
     "multiagent_compatibility": False,
     "helipad_y_ranges": [(0, 3)],  # train
