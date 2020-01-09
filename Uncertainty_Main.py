@@ -116,13 +116,13 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
         # train it some more to match total episodes
         for i in range(train_episodes * (len(selectorspecific.agents) - 1)):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=True)
+            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=False)
             train_test_logger.add_data([str(name), str(entrynr), "train:generic", str(reward), str(std)])
             entrynr += 1
         # test it again
         for i in range(test_episodes):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=True)
+            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=False)
             train_test_logger.add_data(
                 [str(name), str(entrynr), "test:generic{}".format(train_episodes * len(selectorspecific.agents)),
                  str(reward), str(std)])
