@@ -72,7 +72,7 @@ selectorsingle = Selector([agent3])
 
 
 # ---------------------------run-----------------------------------
-def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name):
+def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name, render=False):
     # train
     train_test_logger = Logger(name=name, filename="test_train_log_{}".format(name))
     train_test_logger.add_data(["name", "entry_number", "selected or train", "reward", "standard deviation","correctly_selected(opt)"])
@@ -83,7 +83,7 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
             my_environment = environments[i]
             selectorspecific.training(i)
             for i in range(train_episodes):
-                selected, reward, std = my_environment.run(selectorspecific, train=True, verbose=False, render=False)
+                selected, reward, std = my_environment.run(selectorspecific, train=True, verbose=False, render=render)
                 train_test_logger.add_data(
                     [str(name), str(entrynr), "train: {}".format(selected), str(reward), str(std)])
                 entrynr += 1
@@ -92,7 +92,7 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
         selectorspecific.train = False
         for i in range(test_episodes):
             env_num, my_environment = random.choice(list(enumerate(environments)))
-            selected, reward, std = my_environment.run(selectorspecific, train=False, verbose=False, render=False)
+            selected, reward, std = my_environment.run(selectorspecific, train=False, verbose=False, render=render)
             train_test_logger.add_data(
                 [str(name), str(entrynr), "test:specific:{}/{}".format(selected-1, env_num), str(reward), str(std),
                  str((selected-1) == env_num)])
@@ -101,14 +101,14 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
         # single agent
         for i in range(train_episodes):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=False)
+            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=render)
             train_test_logger.add_data([str(name), str(entrynr), "train:generic", str(reward), str(std)])
             entrynr += 1
             print(entrynr)
         # test it
         for i in range(test_episodes):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=False)
+            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=render)
             train_test_logger.add_data(
                 [str(name), str(entrynr), "test:generic{}".format(train_episodes), str(reward), str(std)])
             entrynr += 1
@@ -116,13 +116,13 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
         # train it some more to match total episodes
         for i in range(train_episodes * (len(selectorspecific.agents) - 1)):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=False)
+            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=render)
             train_test_logger.add_data([str(name), str(entrynr), "train:generic", str(reward), str(std)])
             entrynr += 1
         # test it again
         for i in range(test_episodes):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=False)
+            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=render)
             train_test_logger.add_data(
                 [str(name), str(entrynr), "test:generic{}".format(train_episodes * len(selectorspecific.agents)),
                  str(reward), str(std)])
