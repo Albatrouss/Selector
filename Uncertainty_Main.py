@@ -48,17 +48,15 @@ environments = [my_environment1, my_environment2]
 
 # ------------------------init Agents ---------------------
 
-state_count1 = my_environment1.environment.observation_space.shape[0]
-action_count1 = my_environment1.environment.action_space.n
+state_count = my_environment1.environment.observation_space.shape[0]
+action_count = my_environment1.environment.action_space.n
 
-state_count2 = my_environment2.environment.observation_space.shape[0]
-action_count2 = my_environment2.environment.action_space.n
 
-agent1 = Agent(state_count1, action_count1, head_count,
+agent1 = Agent(state_count, action_count, head_count,
                name="1")  # "Agent1_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-agent2 = Agent(state_count2, action_count2, head_count,
+agent2 = Agent(state_count, action_count, head_count,
                name="2")  # "Agent2_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-agent3 = Agent(state_count2, action_count2, head_count,
+agent3 = Agent(state_count, action_count, head_count,
                name="3")  # "Agent2_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
 '''if not train:
     print("loading agents")
@@ -77,7 +75,7 @@ selectorsingle = Selector([agent3])
 def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name):
     # train
     train_test_logger = Logger(name=name, filename="test_train_log_{}".format(name))
-    train_test_logger.add_data(["name", "entry_number", "selected or train", "reward", "standard deviation"])
+    train_test_logger.add_data(["name", "entry_number", "selected or train", "reward", "standard deviation","correctly_selected(opt)"])
     entrynr = 0
     try:
         # multi agents
@@ -91,11 +89,13 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
                 entrynr += 1
                 print(entrynr)
         # test multi agents:
+        selectorspecific.train = False
         for i in range(test_episodes):
             env_num, my_environment = random.choice(list(enumerate(environments)))
             selected, reward, std = my_environment.run(selectorspecific, train=False, verbose=False, render=False)
             train_test_logger.add_data(
-                [str(name), str(entrynr), "test:specific:{}/{}".format(selected, env_num), str(reward), str(std)])
+                [str(name), str(entrynr), "test:specific:{}/{}".format(selected-1, env_num), str(reward), str(std),
+                 str((selected-1) == env_num)])
             entrynr += 1
             print(entrynr)
         # single agent
@@ -110,76 +110,33 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
             my_environment = random.choice(environments)
             _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=False)
             train_test_logger.add_data(
-                [str(name), str(entrynr), "test:generic{}".format(test_episodes), str(reward), str(std)])
+                [str(name), str(entrynr), "test:generic{}".format(train_episodes), str(reward), str(std)])
             entrynr += 1
             print(entrynr)
         # train it some more to match total episodes
         for i in range(train_episodes * (len(selectorspecific.agents) - 1)):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=False)
+            _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=True)
             train_test_logger.add_data([str(name), str(entrynr), "train:generic", str(reward), str(std)])
             entrynr += 1
         # test it again
         for i in range(test_episodes):
             my_environment = random.choice(environments)
-            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=False)
+            _, reward, std = my_environment.run(selectorsingle, train=False, verbose=False, render=True)
             train_test_logger.add_data(
-                [str(name), str(entrynr), "test:generic{}".format(test_episodes * len(selectorspecific.agents)),
+                [str(name), str(entrynr), "test:generic{}".format(train_episodes * len(selectorspecific.agents)),
                  str(reward), str(std)])
             entrynr += 1
             print(entrynr)
 
     finally:
+        for i, agent in enumerate(selectorspecific.agents):
+            timestamp = str(datetime.datetime.fromtimestamp(time.time()).isoformat())
+            agent.brain.total_model.save("models/{}Trained:{}_onEnv:{}_time:{}.h5".format(name,train_episodes,i,timestamp))
+        for i, agent in enumerate(selectorsingle.agents):
+            timestamp = str(datetime.datetime.fromtimestamp(time.time()).isoformat())
+            agent.brain.total_model.save("models/{}Trained:{}_onAllEnv_time:{}.h5".format(name,train_episodes,timestamp))
         print("Done")
 
 
 train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name)
-
-"""
-finished = False
-i = 0
-try:
-    # train agent 1 if train == true
-    selector.training(0)
-    my_environment = my_environment1
-    while i < train_episodes and train:
-        selected, reward = my_environment.run(selector, train, verbose, render=render)
-        train_logger1.add_data([i, selected, reward])
-        i += 1
-        print("Agent 1: Episode {}/{}".format(i, train_episodes))
-    i = 0
-    my_environment = my_environment2
-    selector.training(1)
-    # train agent 2 if train == true
-    while i < train_episodes and train:
-        selected, reward = my_environment.run(selector, train, verbose, render=render)
-        train_logger1.add_data([i, selected, reward])
-        i += 1
-        print("Agent 2: Episode {}/{}".format(i, train_episodes))
-    i = 0
-    selector.train = False
-    while i < test_episodes:
-        data = [i]
-        print("Episode {} started".format(i))
-        env = random.randint(0, 1)
-        data.append(env)
-        if env == 0:
-            my_environment = my_environment1
-            print("Environment 0 loaded")
-        if env == 1:
-            my_environment = my_environment2
-            print("Environment 1 loaded")
-
-        data.append(my_environment.run(selector, train=False, verbose=verbose, render=render))
-        main_logger.add_data(data)
-        i = i + 1
-    finished = True
-
-finally:
-    if train:
-        timestamp = str(datetime.datetime.fromtimestamp(time.time()).isoformat())
-        agent1.brain.total_model.save(
-            "models/{}uncert1_hc{}_trainepisodes{}_time{}.h5".format(finished, head_count, train_episodes, timestamp))
-        agent2.brain.total_model.save(
-            "models/{}uncert2_hc{}_trainepisodes{}_time{}.h5".format(finished, head_count, train_episodes, timestamp))
-    print("Savedanddone")"""
