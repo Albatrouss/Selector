@@ -17,10 +17,10 @@ SHARED_EXPERIENCE = 0.8
 
 
 class Brain:
-    def __init__(self, state_count, action_count, head_count, name):
+    def __init__(self, input_shape, action_count, head_count, name):
         self.logger = Logger(name=name, filename=name)
         self.name = name
-        self.state_count = state_count
+        self.input_shape = input_shape
         self.action_count = action_count
         self.head_count = head_count
         self.total_model, self.models = self.create_model(self.head_count)
@@ -29,11 +29,27 @@ class Brain:
         """ creates a sequential neural net with head_count heads as output layers"""
         init = init_head = "glorot_uniform"
         # create the input layer
-        inputs = Input(shape=(self.state_count,))
-
+        inputs = Input(shape=( self.input_shape))
+        conv1 = keras.layers.Conv2D(input_shape=(self.input_shape), filters=32, kernel_size=8, strides=(4,4),
+                                    data_format="channels_last", padding='valid',
+                                    dilation_rate=(1, 1), activation=None, use_bias=True,
+                                    kernel_initializer='glorot_uniform',
+                                    bias_initializer='zeros', kernel_regularizer=None, bias_regularizer=None,
+                                    activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(inputs)
+        conv2 = keras.layers.Conv2D(filters=64, kernel_size=4, strides=(2,2), padding='valid',
+                                    dilation_rate=(1, 1), activation=None, use_bias=True,
+                                    kernel_initializer='glorot_uniform',
+                                    bias_initializer='zeros', kernel_regularizer=None, bias_regularizer=None,
+                                    activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(conv1)
+        conv3 = keras.layers.Conv2D(filters=64, kernel_size=3, strides=(1,1), padding='valid',
+                                    dilation_rate=(1, 1), activation=None, use_bias=True,
+                                    kernel_initializer='glorot_uniform',
+                                    bias_initializer='zeros', kernel_regularizer=None, bias_regularizer=None,
+                                    activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(conv2)
         # create the layers that learn the game
-        d1 = Dense(64, activation="relu", name="dense_1_shared", kernel_initializer=init)(inputs)
-        d2 = Dense(64, activation="relu", name="dense_2_shared", kernel_initializer=init)(d1)
+        f1 = Flatten()(conv3)
+        d1 = Dense(512, activation="relu", name="dense_1_shared", kernel_initializer=init)(f1)
+        d2 = Dense(512, activation="relu", name="dense_2_shared", kernel_initializer=init)(d1)
         # create the heads that come on top of the gamelayers
         models = []
         heads = []
@@ -70,7 +86,7 @@ class Brain:
 
         """
         predictions = []
-        prediction = self.total_model.predict(state.reshape(1, self.state_count))
+        prediction = self.total_model.predict(state.reshape((1,) + self.input_shape))
         prediction = numpy.array(prediction).flatten()
 
         for i in range(0, self.head_count, 1):
@@ -91,7 +107,7 @@ class Brain:
             return numpy.argmax(predictions[head_num]), stddev
 
     def predict_one(self, state, head):
-        a = self.models[head].predict(state.reshape(1, self.state_count)).flatten()
+        a = self.models[head].predict(state.reshape((1,) + self.input_shape)).flatten()
         return a
 
     def predict(self, state, head):
@@ -124,7 +140,8 @@ class Memory:
 
     def add(self, sample):
         """generates a random mask and adds the sample to the memories belonging to the heads selected by the mask"""
-        mask = numpy.random.choice([0.00000000001, 1], size=self.head_count, p=[1 - SHARED_EXPERIENCE, SHARED_EXPERIENCE])
+        mask = numpy.random.choice([0.00000000001, 1], size=self.head_count,
+                                   p=[1 - SHARED_EXPERIENCE, SHARED_EXPERIENCE])
         self.samples.append((sample, mask))
 
     def sample(self, n):
@@ -133,12 +150,12 @@ class Memory:
 
 class Agent:
 
-    def __init__(self, state_count, action_count, head_count, name):
+    def __init__(self, input_dim, action_count, head_count, name):
         self.name = name
-        self.state_count = state_count
+        self.input_dim = input_dim
         self.action_count = action_count
         self.head_count = head_count
-        self.brain = Brain(state_count, action_count, head_count, name)
+        self.brain = Brain(input_dim, action_count, head_count, name)
         self.memory = Memory(MEMORY_CAPACITY, head_count)
 
     def load_model(self, model):
@@ -167,22 +184,22 @@ class Agent:
             return None
 
         head_num = numpy.random.choice(range(self.head_count))
-        no_state = numpy.zeros(self.state_count)
-        states = numpy.array([o[0] for o, m in batch])  # starting states of actions in the batch
-        ending_states = numpy.array([(no_state if o[3] is None else o[3]) for o, m in batch])
+        no_state = numpy.zeros(self.input_dim)
+        states = numpy.array([sample[0] for sample, mask in batch])  # starting states of actions in the batch
+        ending_states = numpy.array([(no_state if sample[3] is None else sample[3]) for sample, mask in batch])
         # ending states of actions in batch, unless finalstate, then 0
 
         predictions = self.brain.predict(states, head=head_num)  # predicted reward at start
-        predictions_of_end = self.brain.predict(ending_states, head=head_num) # predicted reward at end
-        x = numpy.zeros((batch_length, self.state_count))
+        predictions_of_end = self.brain.predict(ending_states, head=head_num)  # predicted reward at end
+        x = numpy.zeros(((batch_length,) + self.input_dim))
         y = numpy.zeros((batch_length, self.action_count))
-        weights = [m for o, m in batch]
+        weights = [mask for sample, mask in batch]
         for i in range(batch_length):
-            o, m = batch[i]
-            state = o[0]
-            action = o[1]
-            reward = o[2]
-            end_state = o[3]
+            sample, mask = batch[i]
+            state = sample[0]
+            action = sample[1]
+            reward = sample[2]
+            end_state = sample[3]
 
             t = predictions[i]
             if end_state is None:

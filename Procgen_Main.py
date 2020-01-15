@@ -3,55 +3,38 @@ import random
 import time
 import sys
 
+import gym
+
 import lunar_lander as ll
 from Environment import Environment
-from Uncertainty_Agent import Agent
+from DQN_Agent_CNN import Agent
 from Uncertainty_Selector import Selector
 from Logger import Logger
 
 ############################################################ Main
 # ------------------------define modes----------------------
 verbose = True
-render = True
+render = False
 train = False
-train_episodes = 500
+train_episodes = 500000
 test_episodes = 100
 head_count = 10
 name = sys.argv[1]
 
 # ---------------define Environments-------------------------
-my_problem1 = ll.LunarLanderModable()
-my_problem1.seed(int(time.time()))
-my_problem2 = ll.LunarLanderModable()
-my_problem2.seed(int(time.time()))
-env_params1 = {
-    "multiagent_compatibility": False,
-    "helipad_y_ranges": [(0, 3)],  # train
-    "helipad_x_ranges": [(1, 3)],  # train
-}
-env_params2 = {
-    "multiagent_compatibility": False,
-    "helipad_y_ranges": [(5, 8)],  # train
-    "helipad_x_ranges": [(8, 12)],  # train
-}
-my_problem1.load_config(env_params1)
-my_environment1 = Environment(my_problem1)
-my_problem2.load_config(env_params2)
-my_environment2 = Environment(my_problem2)
-environments = [my_environment1, my_environment2]
 
+env = Environment(gym.make("procgen:procgen-chaser-v0", distribution_mode="easy"))
+environments=[env]
 # ------------------------init Agents ---------------------
 
-state_count = my_environment1.environment.observation_space.shape[0]
-action_count = my_environment1.environment.action_space.n
+input_dims = env.environment.observation_space.shape
+print(input_dims)
+action_count = env.environment.action_space.n
 
 
-agent1 = Agent(state_count, action_count, head_count,
+agent1 = Agent(input_dims, action_count, head_count,
                name="1")  # "Agent1_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-agent2 = Agent(state_count, action_count, head_count,
-               name="2")  # "Agent2_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-agent3 = Agent(state_count, action_count, head_count,
-               name="3")  # "Agent2_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
+agent1.brain.total_model.load_weights("models/chaser{}.h5".format(name))
 '''if not train:
     print("loading agents")
     agent1.brain.total_model.load_weights(
@@ -61,12 +44,15 @@ agent3 = Agent(state_count, action_count, head_count,
 
 # ------------------------init Selectors ------------------
 
-selector_specific = Selector([agent1, agent2])
-selector_single = Selector([agent3])
+selector_specific = Selector([agent1])
 
 
 # ---------------------------run-----------------------------------
-def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name, render=False):
+def savemodel(agent,  name):
+    agent.brain.total_model.save(
+        "models/chaser{}.h5".format(name))  # {}Trained:{}_onEnv:{}_time:{}.h5".format(name,train_episodes,i,timestamp))
+
+def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name, render):
     # train
     train_test_logger = Logger(name=name, filename="test_train_log_{}".format(name))
     train_test_logger.add_data(["name", "entry_number", "selected or train", "reward", "standard deviation","correctly_selected(opt)"])
@@ -81,7 +67,8 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
                 train_test_logger.add_data(
                     [str(name), str(entrynr), "train: {}".format(selected), str(reward), str(std)])
                 entrynr += 1
-                print(entrynr)
+                if entrynr % 501 == 0:
+                    savemodel(agent, name)
         # test multi agents:
         selectorspecific.train = False
         for i in range(test_episodes):
@@ -93,6 +80,7 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
             entrynr += 1
             print(entrynr)
         # single agent
+        '''
         for i in range(train_episodes):
             my_environment = random.choice(environments)
             _, reward, std = my_environment.run(selectorsingle, train=True, verbose=False, render=render)
@@ -122,15 +110,16 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
                  str(reward), str(std)])
             entrynr += 1
             print(entrynr)
-
+        '''
     finally:
         for i, agent in enumerate(selectorspecific.agents):
             timestamp = str(datetime.datetime.fromtimestamp(time.time()).isoformat())
-            agent.brain.total_model.save("models/{}Trained:{}_onEnv:{}_time:{}.h5".format(name,train_episodes,i,timestamp))
-        for i, agent in enumerate(selectorsingle.agents):
+            agent.brain.total_model.save("models/chaser.h5")#{}Trained:{}_onEnv:{}_time:{}.h5".format(name,train_episodes,i,timestamp))
+        '''for i, agent in enumerate(selectorsingle.agents):
             timestamp = str(datetime.datetime.fromtimestamp(time.time()).isoformat())
             agent.brain.total_model.save("models/{}Trained:{}_onAllEnv_time:{}.h5".format(name,train_episodes,timestamp))
+            '''
         print("Done")
 
 
-train_test(train_episodes, test_episodes, selector_specific, selector_single, environments, name)
+train_test(train_episodes, test_episodes, selector_specific, selector_specific, environments, name, render=render)
