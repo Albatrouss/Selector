@@ -34,7 +34,11 @@ action_count = env.environment.action_space.n
 
 agent1 = Agent(input_dims, action_count, head_count,
                name="1")  # "Agent1_hc{}_train{}_episodes{}".format(head_count, train, train_episodes))
-agent1.brain.total_model.load_weights("models/chaser{}.h5".format(name))
+try:
+    agent1.brain.total_model.load_weights("models/chaser{}.h5".format(name))
+except:
+    print("no file")
+
 '''if not train:
     print("loading agents")
     agent1.brain.total_model.load_weights(
