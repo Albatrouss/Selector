@@ -58,8 +58,9 @@ def savemodel(agent,  name):
 
 def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name, render):
     # train
-    train_test_logger = Logger(name=name, filename="test_train_log_{}".format(name))
+    train_test_logger = Logger(name=name, filename="test_train_log_chaser_{}".format(name))
     train_test_logger.add_data(["name", "entry_number", "selected or train", "reward", "standard deviation","correctly_selected(opt)"])
+    model_logger = Logger(name="modellogger", filename="modellogger_{}".format(name))
     entrynr = 0
     try:
         # multi agents
@@ -71,8 +72,9 @@ def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, 
                 train_test_logger.add_data(
                     [str(name), str(entrynr), "train: {}".format(selected), str(reward), str(std)])
                 entrynr += 1
-                if entrynr % 501 == 0:
+                if entrynr % 100 == 0:
                     savemodel(agent, name)
+                    model_logger.add_data(["episodes:", str(entrynr)])
         # test multi agents:
         selectorspecific.train = False
         for i in range(test_episodes):
