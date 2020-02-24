@@ -1,15 +1,16 @@
 class Environment:
-    def __init__(self, env):
+    def __init__(self, env, name=""):
         self.environment = env
+        self.name = name
 
     def run(self, selector, train, verbose, render):
         state = self.environment.reset()
         reward = 0
-        selected, _, std = selector.select(state)
+        selected, log, std = selector.select(state)
         while True:
             if render:
                 self.environment.render()
-            action = selector.act(state)
+            action, std = selector.act(state)
             new_state, current_reward, done, info = self.environment.step(action)
 
             if done:
@@ -17,7 +18,8 @@ class Environment:
 
             if train:
                 selector.observe((state, action, current_reward, new_state))
-                selector.replay()
+                if selector.selected_agent.steps % 4 == 0:
+                    selector.replay()
 
             state = new_state
             reward += current_reward
@@ -26,5 +28,5 @@ class Environment:
             if done:
                 break
         if verbose:
-            print("Reward achieved: ", reward)
-        return selected, reward, std
+            print("Steps: {}, Reward achieved: {}".format(selector.selected_agent.steps, reward))
+        return selected, reward, std, log

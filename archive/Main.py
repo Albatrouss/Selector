@@ -1,8 +1,8 @@
 import random
 import lunar_lander as ll
 from Environment import Environment
-from Agent import Agent
-from Selector import Selector
+from archive.Agent import Agent
+from archive.Clustering_Selector import Selector
 
 ############################################################ Main
 # ---------------define Environments-------------------------
