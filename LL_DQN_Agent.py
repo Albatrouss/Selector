@@ -2,6 +2,8 @@
 # bootstrap based on https://arxiv.org/pdf/1901.02219.pdf
 # Author: Daniel Hämmerle
 
+# No longer in use --> integrated into DDQN Agent
+
 import random, numpy, time
 from Logger import Logger
 import keras
@@ -106,12 +108,6 @@ class Brain:
         """ punishes higher standard deviations by squaring them before averaging them out"""
         return numpy.average([x ** 2 for x in numpy.std(predictions, axis=0)])
 
-
-'''
-    def train(self, x, y, head, epoch=1, verbose=0):
-        """fits a head with training data"""
-        self.models[head].fit(x, y, batch_size=BATCH_SIZE, epochs=epoch, verbose=verbose)
-'''
 
 
 class Memory:

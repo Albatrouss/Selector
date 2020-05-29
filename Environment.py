@@ -18,12 +18,11 @@ class Environment:
 
             if train:
                 selector.observe((state, action, current_reward, new_state))
-                if selector.selected_agent.steps % 4 == 0:
-                    selector.replay()
+                selector.replay()
 
             state = new_state
             reward += current_reward
-            if reward < -1000:#to avoid getting stuck
+            if reward < -1000:#to avoid getting stuck in LL
                 break
             if done:
                 break

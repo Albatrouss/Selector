@@ -16,59 +16,57 @@ from Logger import Logger
 # parser
 parser = argparse.ArgumentParser(description='Process input for training models.')
 parser.add_argument("--name")
-# parser.add_argument("-e")
-# parser.add_argument("--trainingsteps")
-# parser.add_argument("--testinginterval")
-# parser.add_argument("-shared_exp")
-# parser.add_argument("-e")
 args = parser.parse_args()
-# TODO use arguments
 
 
 # ------------------------define modes----------------------
-verbose = True
-render = True
+verbose = False
+render = False
 train = False
 head_count = 10
 name = args.name
 
 # ---------------define Environments-------------------------
 
-env1 = Environment(gym.make("procgen:procgen-chaser-v0", distribution_mode="easy"), name="procgen:procgen-chaser-v0")
-env2 = Environment(gym.make("procgen:procgen-bigfish-v0", distribution_mode="easy"), name="procgen:procgen-bigfish-v0")
-env3 = Environment(gym.make("procgen:procgen-caveflyer-v0", distribution_mode="easy"),
-                   name="procgen:procgen-caveflyer-v0")
+env1 = Environment(
+    gym.make("procgen:procgen-fruitbot-v0", distribution_mode="easy", use_sequential_levels=True, num_levels=1,
+             start_level=1), name="procgen:procgen-fruitbot-v0")
+env2 = Environment(
+    gym.make("procgen:procgen-bigfish-v0", distribution_mode="easy", use_sequential_levels=True, num_levels=1,
+             start_level=1), name="procgen:procgen-bigfish-v0")
+env3 = Environment(
+    gym.make("procgen:procgen-climber-v0", distribution_mode="easy", use_sequential_levels=True, num_levels=1,
+             start_level=1), name="procgen:procgen-climber-v0")
 environments = [env1, env2, env3]
 # ------------------------init Agents ---------------------
 
 input_dims = env1.environment.observation_space.shape
 
 action_count = env1.environment.action_space.n
-shared_exp = 1
+shared_exp = 0.8
 steps = 2e6
-if int(name) <= 6:
-    shared_exp = 0.5
-    steps = 2e6
-elif int(name) <= 12:
-    shared_exp = 0.9
-    steps = 2e6
-else:# int(name) <= 18:
-    shared_exp = 0.9
-    steps = 4e6
+batch_size = 32
+mode = "conv"
+multi_agent = True
 
-steps = 5e5
+if int(name) <= 12:
+    multi_agent = False
 
-agent1 = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_chaser".format(name), save_memory_multiplier=0.1)
-agent2 = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_bigfish".format(name), save_memory_multiplier=0.1)
-agent3 = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_caveflyer".format(name), save_memory_multiplier=0.1)
+agent1 = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_fruitbot".format(name),
+               mode=mode, batch_size=batch_size, save_memory_multiplier=0.1)
+agent2 = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_bigfish".format(name),
+               mode=mode, batch_size=batch_size, save_memory_multiplier=0.1)
+agent3 = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_climber".format(name),
+               mode=mode, batch_size=batch_size, save_memory_multiplier=0.1)
 
-agent_multi = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_multi".format(name), save_memory_multiplier=0.1)
+agent_multi = Agent(input_dims, action_count, head_count, shared_exp=shared_exp, name="{}_multi".format(name),
+                    mode=mode, batch_size=batch_size, save_memory_multiplier=0.1)#,steps_before_learning=100, save_big_path="models/")
 
 # ------------------------init Selectors ------------------
 multi_logger = Logger(filename="{}_multi_selector".format(name))
-selector_multi_agent = Selector([agent1, agent2, agent3])#, logger=multi_logger)
+selector_multi_agent = Selector([agent1, agent2, agent3])  # , logger=multi_logger)
 single_logger = Logger(filename="{}_single_selector".format(name))
-selector_single_agent = Selector([agent_multi])#, logger=single_logger)
+selector_single_agent = Selector([agent_multi])  # , logger=single_logger)
 
 # load existing agents into memory if not new
 try:
@@ -85,31 +83,34 @@ except:
 # ---------------------------run-----------------------------------
 
 
-def train_and_eval_multi(training_steps, test_interval, test_episodes, selector, environments, render=True,verbose=False, name=str(name), shared_exp = shared_exp):
+def train_and_eval_multi(training_steps, test_interval, test_episodes, selector, environments, render=True,
+                         verbose=False, name=str(name), mode=mode, batch_size=batch_size):
     multi_logger = Logger(name=name, filename="{}_multi".format(name), mode="save_on_command")
     # if it is a new training and evaluation, write parameters and headers to file
     entrynr = 0
     start = 0
-    #if this is a new start
+    # if this is a new start
     if not os.path.isfile("logs/{}_teststate.csv".format(name)):
         # one line for all the environments and their numbers
-        parameter_string = "steps: {}, shared_exp: {}".format(training_steps, shared_exp)
-        multi_logger.add_data(parameter_string)
+        parameterheader = "training_steps;test_interval;test_episodes; mode;batch_size;"
+        paramenter_data = "{};{};{};{};{};".format(training_steps, test_interval, test_episodes, mode, batch_size)
+        multi_logger.add_data(parameterheader)
+        multi_logger.add_data(paramenter_data)
         env_list = []
         for enr, e in enumerate(environments):
             env_list.append((enr, e.name))
         multi_logger.add_data(env_list)
         # one line with parameters
-        parameter_header = ["training_steps", "test_interval", "shared_experience", "head_count"]
+        parameter_header = ["training_steps", "test_interval", "shared_experience", "head_count", "single-multi"]
         parameter_list = [str(training_steps), str(test_interval), str(selector.selected_agent.shared_exp),
-                          str(selector.selected_agent.head_count)]
+                          str(selector.selected_agent.head_count), "multi"]
         multi_logger.add_data(parameter_header)
         multi_logger.add_data(parameter_list)
         # header with the column names after that
         header_train = ["entrynr", "train", "agentnr", "envnr", "agent_steps", "std_dev_punished", "std_dev", "reward",
                         "timestamp"]
 
-        header_eval = ["entrynr", "eval", "envnr"]
+        header_eval = ["entrynr", "eval", "agent_steps", "envnr"]
         for i, agent in enumerate(selector.agents):
             header_eval.append("Agent{}_std_punished".format(str(i)))
             header_eval.append("Agent{}_std".format(str(i)))
@@ -122,39 +123,63 @@ def train_and_eval_multi(training_steps, test_interval, test_episodes, selector,
         multi_logger.add_data(header_eval)
         multi_logger.add_data(header_log)
         multi_logger.save_data()
-        #entrynr = 1
+        # entrynr = 1
         mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
-        string_data = str(entrynr) + ";"+str(start) +";" \
-                        + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+        string_data = str(entrynr) + ";" + str(start) + ";" \
+                      + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
         mylogfile.write(string_data)
         mylogfile.close()
-    #if there has been a start already
+    # if there has been a start already
     else:
-        #read in entrynr and i
+        # read in entrynr and i
         mylogfile = open("logs/{}_teststate.csv".format(name), 'r')
         firstRow = mylogfile.readline()
         fieldnames = firstRow.strip('\n').split(";")
         entrynr = int(fieldnames[0])
         start = int(fieldnames[1])
 
-        #todo use new logfile mechanism of saving data only on command
+        # todo use new logfile mechanism of saving data only on command
     # training + testing
+    ####################
+    # get a baseline before the testing:
+    ##################################
+    selector.testing()
+    if (start == 0) & (entrynr == 0):
+        for test_ep in range(test_episodes):
+            # test each environment for the approx. same amount
+            env_nr = test_ep % len(environments)
+            # getting all the standard deviations as well as the picked one in selector logger
+            selected, reward, std, log = environments[env_nr].run(selector, train=False, verbose=verbose, render=render)
+            correct = 1
+            if log[-1] != env_nr:
+                correct = 0
+            # entrynr; eval; envnr; Agent0_std_punished; Agent0_std; Agent1_std_punished; Agent1_std; Agent2_std_punished; Agent2_std; winner; reward; correctly_selected;
+            log_data = [entrynr, "eval", selector.agents[selected].steps, env_nr, log, reward, correct]
+            multi_logger.add_data(log_data)
+            entrynr += 1
+        multi_logger.save_data()
+
+    #################
+    # start training + testing
+    #############
     for i in range(start, int(training_steps / test_interval)):
         # training
         if verbose:
-            print("starting training at {} steps".format(i*test_interval))
+            print("starting training at {} steps".format(i * test_interval))
         mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
         string_data = str(entrynr) + ";" + str(i) + ";" \
                       + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
         mylogfile.write(string_data)
         mylogfile.close()
-
+        #############################
+        # training
+        ##############################
         for nr, agent in enumerate(selector.agents):
             if verbose:
                 print("training on agent nr {} until {} steps".format(nr, (i + 1) * test_interval))
             while agent.steps <= (i + 1) * test_interval:
                 selector.training(nr)
-                selected, reward, stds, _ = environments[nr].run(selector, train=True, verbose=False, render=render)
+                selected, reward, stds, _ = environments[nr].run(selector, train=True, verbose=verbose, render=render)
                 if isinstance(stds, tuple):
                     pstd, std = stds
                 else:
@@ -167,67 +192,258 @@ def train_and_eval_multi(training_steps, test_interval, test_episodes, selector,
 
             # save agent
             agent.save_agent()
-            multi_logger.add_data([str(entrynr),"log", "agent_nr_{}_saved_at_{}steps".format(nr, agent.steps)])
+            multi_logger.add_data([str(entrynr), "log", "agent_nr_{}_saved_at_{}steps".format(nr, agent.steps)])
             entrynr += 1
-            #write data from logger to disk
+            # write data from logger to disk
             multi_logger.save_data()
-            #write entrynumber and i to file
+            # write entrynumber and i to file
             mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
             string_data = str(entrynr) + ";" + str(i) + ";" \
                           + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
             mylogfile.write(string_data)
             mylogfile.close()
 
-
-        #log the end of this iteration of testing
+        # log the end of this iteration of testing
         multi_logger.add_data([str(entrynr), "log",
-                               "trained all agents for {} steps, starting evaluation".format((i+1)*test_interval)])
+                               "trained all agents for {} steps, starting evaluation".format((i + 1) * test_interval)])
         entrynr += 1
         multi_logger.save_data()
-        #save i and entrynr
+        # save i and entrynr
         mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
         string_data = str(entrynr) + ";" + str(i) + ";" \
                       + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
         mylogfile.write(string_data)
         mylogfile.close()
+        ##############################
         # testing
+        #############################
         selector.testing()
         if verbose:
             print("starting evaluation at {} steps".format((i + 1) * test_interval))
         # pick an environment at random for test_epsiodes, log the std of all agents and the following decision
         for test_ep in range(test_episodes):
-            #test each environment for the approx. same amount
+            # test each environment for the approx. same amount
             env_nr = test_ep % len(environments)
             # getting all the standard deviations as well as the picked one in selector logger
-            selected, reward, std, log = environments[env_nr].run(selector, train=False, verbose=False, render=render)
+            selected, reward, std, log = environments[env_nr].run(selector, train=False, verbose=verbose, render=render)
             correct = 1
             if log[-1] != env_nr:
                 correct = 0
             # entrynr; eval; envnr; Agent0_std_punished; Agent0_std; Agent1_std_punished; Agent1_std; Agent2_std_punished; Agent2_std; winner; reward; correctly_selected;
-            log_data = [entrynr, "eval", env_nr, log, reward, correct ]
+            log_data = [entrynr, "eval", selector.agents[selected].steps, env_nr, log, reward, correct]
             multi_logger.add_data(log_data)
             entrynr += 1
-        multi_logger.add_data([str(entrynr),"log", "evaluation round done"])
+        multi_logger.add_data([str(entrynr), "log", "evaluation round done"])
         multi_logger.save_data()
         entrynr += 1
         if verbose:
             print("ended evaluation")
 
-        #write state to logfile
+        # write state to logfile
         mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
-        string_data = str(entrynr) + ";" + str(start) + ";" \
+        string_data = str(entrynr) + ";" + str(i) + ";" \
                       + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
         mylogfile.write(string_data)
         mylogfile.close()
 
     # finishing up training and testing:
-    multi_logger.add_data([str(entrynr),"log", "all done, finished simulation"])
+    mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+    string_data = str(entrynr) + ";" + str(int(training_steps / test_interval)) + ";" \
+                  + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+    mylogfile.write(string_data)
+    mylogfile.close()
+
+    multi_logger.add_data([str(entrynr), "log", "all done, finished simulation"])
     if verbose:
         print("finished train and eval")
     entrynr += 1
     multi_logger.save_data()
 
-#todo copy and adapt multi eval to eval single
+
+def train_and_eval_single(training_steps, test_interval, test_episodes, selector, environments, render=True,
+                          verbose=False, name=str(name), mode=mode, batch_size=batch_size):
+    single_logger = Logger(name=name, filename="{}_single".format(name), mode="save_on_command")
+    # if it is a new training and evaluation, write parameters and headers to file
+    entrynr = 0
+    start = 0
+    # if this is a new start
+    if not os.path.isfile("logs/{}_teststate.csv".format(name)):
+        # one line for all the environments and their numbers
+        parameterheader = "training_steps;test_interval;test_episodes; mode;batch_size;"
+        paramenter_data = "{};{};{};{};{};".format(training_steps, test_interval, test_episodes, mode, batch_size)
+        single_logger.add_data(parameterheader)
+        single_logger.add_data(paramenter_data)
+        env_list = []
+        for enr, e in enumerate(environments):
+            env_list.append((enr, e.name))
+        single_logger.add_data(env_list)
+        # one line with parameters
+        parameter_header = ["training_steps", "test_interval", "shared_experience", "head_count", "single-multi"]
+        parameter_list = [str(training_steps), str(test_interval), str(selector.selected_agent.shared_exp),
+                          str(selector.selected_agent.head_count), "single"]
+        single_logger.add_data(parameter_header)
+        single_logger.add_data(parameter_list)
+        # header with the column names after that
+        header_train = ["entrynr", "train", "agentnr", "envnr", "agent_steps", "std_dev_punished", "std_dev", "reward",
+                        "timestamp"]
+
+        header_eval = ["entrynr", "eval", "agent_steps", "envnr"]
+        for i, agent in enumerate(selector.agents):
+            header_eval.append("Agent{}_std_punished".format(str(i)))
+            header_eval.append("Agent{}_std".format(str(i)))
+        header_eval.append("winner")
+        header_eval.append("reward")
+        header_eval.append("correctly_selected")
+
+        header_log = ["entrynr", "log", "entry", "timestamp"]
+        single_logger.add_data(header_train)
+        single_logger.add_data(header_eval)
+        single_logger.add_data(header_log)
+        single_logger.save_data()
+        # entrynr = 1
+        mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+        string_data = str(entrynr) + ";" + str(start) + ";" \
+                      + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+        mylogfile.write(string_data)
+        mylogfile.close()
+    # if there has been a start already
+    else:
+        # read in entrynr and i
+        mylogfile = open("logs/{}_teststate.csv".format(name), 'r')
+        firstRow = mylogfile.readline()
+        fieldnames = firstRow.strip('\n').split(";")
+        entrynr = int(fieldnames[0])
+        start = int(fieldnames[1])
+
+        # todo use new logfile mechanism of saving data only on command
+    # training + testing
+    ####################
+    # get a baseline before the testing:
+    ##################################
+    selector.testing()
+    if (start == 0) & (entrynr == 0):
+        for test_ep in range(test_episodes):
+            # test each environment for the approx. same amount
+            env_nr = test_ep % len(environments)
+            # getting all the standard deviations as well as the picked one in selector logger
+            selected, reward, std, log = environments[env_nr].run(selector, train=False, verbose=verbose, render=render)
+            correct = 1
+            # if log[-1] != env_nr:
+            #   correct = 0
+            # entrynr; eval; envnr; Agent0_std_punished; Agent0_std; Agent1_std_punished; Agent1_std; Agent2_std_punished; Agent2_std; winner; reward; correctly_selected;
+            log_data = [entrynr, "eval", selector.agents[selected].steps, env_nr, log, reward, correct]
+            single_logger.add_data(log_data)
+            entrynr += 1
+        single_logger.save_data()
+
+    #################
+    # start training + testing
+    #############
+    for i in range(start, int(training_steps / test_interval)):
+        # training
+        if verbose:
+            print("starting training at {} steps".format(i * test_interval))
+        mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+        string_data = str(entrynr) + ";" + str(i) + ";" \
+                      + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+        mylogfile.write(string_data)
+        mylogfile.close()
+        #############################
+        # training
+        ##############################
+        for nr, environment in enumerate(environments):
+            if verbose:
+                print("training on environment nr {} until {} steps".format(nr, (i + 1) * test_interval))
+            # agent.steps <= (i + 1) * test_interval
+
+            current_steps = 3 * i * test_interval + nr * test_interval
+            while (selector.selected_agent.steps - current_steps) <= test_interval:
+                selector.training(0)
+                selected, reward, stds, _ = environments[nr].run(selector, train=True, verbose=verbose, render=render)
+                if isinstance(stds, tuple):
+                    pstd, std = stds
+                else:
+                    pstd = stds
+                    std = stds
+                    # ["entrynr", "train", "agentnr", "envnr", "agent_steps", "std_dev_punished", "std_dev", "reward"
+                single_logger.add_data(
+                    [str(entrynr), "train", str(0), str(nr), str(selector.selected_agent.steps), str(pstd), str(std),
+                     str(reward)])
+                entrynr += 1
+
+            # save agent
+            selector.selected_agent.save_agent()
+            single_logger.add_data([str(entrynr), "log", "agent_nr_{}_saved_at_{}steps".format(nr, selector.selected_agent.steps)])
+            entrynr += 1
+            # write data from logger to disk
+            single_logger.save_data()
+            # write entrynumber and i to file
+            mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+            string_data = str(entrynr) + ";" + str(i) + ";" \
+                          + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+            mylogfile.write(string_data)
+            mylogfile.close()
+
+        # log the end of this iteration of testing
+        single_logger.add_data([str(entrynr), "log",
+                                "trained all environments for {} steps, starting evaluation".format(
+                                    (i + 1) * test_interval)])
+        entrynr += 1
+        single_logger.save_data()
+        # save i and entrynr
+        mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+        string_data = str(entrynr) + ";" + str(i) + ";" \
+                      + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+        mylogfile.write(string_data)
+        mylogfile.close()
+        ##############################
+        # testing
+        #############################
+        selector.testing()
+        if verbose:
+            print("starting evaluation at {} steps".format((i + 1) * test_interval))
+        # pick an environment at random for test_epsiodes, log the std of all agents and the following decision
+        for test_ep in range(test_episodes):
+            # test each environment for the approx. same amount
+            env_nr = test_ep % len(environments)
+            # getting all the standard deviations as well as the picked one in selector logger
+            selected, reward, std, log = environments[env_nr].run(selector, train=False, verbose=verbose, render=render)
+            correct = 1
+            # if log[-1] != env_nr:
+            #    correct = 0
+            # entrynr; eval; envnr; Agent0_std_punished; Agent0_std; Agent1_std_punished; Agent1_std; Agent2_std_punished; Agent2_std; winner; reward; correctly_selected;
+            log_data = [entrynr, "eval", selector.agents[selected].steps, env_nr, log, reward, correct]
+            single_logger.add_data(log_data)
+            entrynr += 1
+        single_logger.add_data([str(entrynr), "log", "evaluation round done"])
+        single_logger.save_data()
+        entrynr += 1
+        if verbose:
+            print("ended evaluation")
+
+        # write state to logfile
+        mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+        string_data = str(entrynr) + ";" + str(i) + ";" \
+                      + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+        mylogfile.write(string_data)
+        mylogfile.close()
+
+    # finishing up training and testing:
+    mylogfile = open("logs/{}_teststate.csv".format(name), 'w+')
+    string_data = str(entrynr) + ";" + str(int(training_steps / test_interval)) + ";" \
+                  + str(datetime.datetime.fromtimestamp(time.time()).isoformat()) + "\n"
+    mylogfile.write(string_data)
+    mylogfile.close()
+
+    single_logger.add_data([str(entrynr), "log", "all done, finished simulation"])
+    if verbose:
+        print("finished train and eval")
+    entrynr += 1
+    single_logger.save_data()
+
+
+'''
+# todo copy and adapt multi eval to eval single
 def train_and_eval_single(training_steps, test_interval, test_episodes, selector, environments, render=True, name=name):
     single_logger = Logger(name=name, filename="{}_single".format(name))
     # if it is a new training and evaluation, write parameters and headers to file
@@ -283,13 +499,16 @@ def train_and_eval_single(training_steps, test_interval, test_episodes, selector
         single_logger.add_data(["-3", "evaluation round done"])
     # finishing up training and testing:
     single_logger.add_data(["-3", "done"])
+'''
 
-
-train_and_eval_multi(steps, int(steps/20), 50, selector_multi_agent, environments, render=render, verbose=True)
-
-#if int(name) % 2 == 0:
-    #train_and_eval_multi(steps, int(steps/20), 50, selector_multi_agent, environments, render=False)
-#else:
+if multi_agent:
+    train_and_eval_multi(steps, int(steps / 20), 51, selector_multi_agent, environments, render=render, verbose=verbose)
+if not multi_agent:
+    train_and_eval_single(steps, int(steps / 20), 51, selector_single_agent, environments, render=render,
+                          verbose=verbose)
+# if int(name) % 2 == 0:
+# train_and_eval_multi(steps, int(steps/20), 50, selector_multi_agent, environments, render=False)
+# else:
 #    train_and_eval_single(steps, int(steps/20), 50, selector_single_agent, environments, render=False)
 '''
 def train_test(train_episodes, test_episodes, selectorspecific, selectorsingle, environments, name, render):

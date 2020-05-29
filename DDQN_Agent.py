@@ -36,8 +36,7 @@ class Brain:
         """
         init = init_head = "glorot_uniform"
         # create the input layer
-
-        if self.mode == "conv":
+        if self.mode == "conv" or self.mode == "conv2":
             inputs = Input(shape=(self.input_shape))
             conv1 = keras.layers.Conv2D(input_shape=(self.input_shape), filters=32, kernel_size=8, strides=(4, 4),
                                         data_format="channels_last", padding='valid',
@@ -58,21 +57,29 @@ class Brain:
             f1 = Flatten()(conv3)
             dfinal = Dense(512, activation="relu", name="dense_1_shared", kernel_initializer=init)(f1)
         if self.mode == "simple":
-            inputs = Input(shape=(self.input_shape[0], ))
+            inputs = Input(shape=(self.input_shape[0],))
             d1 = Dense(64, activation="relu", name="dense_1_shared", kernel_initializer=init)(inputs)
             dfinal = Dense(64, activation="relu", name="dense_2_shared", kernel_initializer=init)(d1)
         # add heads on top
         models = []
         heads = []
         for i in range(head_count):
-            name = "head_{}".format(i)
-            head = Dense(self.action_count, activation='linear', name=name, kernel_initializer=init_head)(dfinal)
-            heads.append(head)
+            if self.mode == "conv2":
+                name = "head_{}".format(i)
+                head_dense = Dense(64, activation="relu", name="dense_{}_head".format(i), kernel_initializer=init)(
+                    dfinal)
+                head = Dense(self.action_count, activation='linear', name=name, kernel_initializer=init_head)(
+                    head_dense)
+                heads.append(head)
+            else:
+                name = "head_{}".format(i)
+                head = Dense(self.action_count, activation='linear', name=name, kernel_initializer=init_head)(dfinal)
+                heads.append(head)
             model = Model(input=inputs, output=head, name=("head_{}".format(i)))
             model.compile(loss='mse', optimizer='adam')
             models.append(model)
         total_model = Model(input=inputs, output=heads, name="overall_modell")
-        opt = RMSprop(learning_rate=self.alpha, )
+        # opt = RMSprop(learning_rate=self.alpha, )
         my_adam = Adam(learning_rate=self.alpha)
         total_model.compile(loss='mse', optimizer=my_adam)
         return total_model, models
@@ -80,7 +87,8 @@ class Brain:
     def train(self, x, y, mask, epoch=1, verbose=0):
         """fits a head with training data"""
         sample_weights = {"head_{}".format(x): w for x, w in enumerate(mask)}
-        self.total_model.fit(x, y, sample_weight=sample_weights, batch_size=self.batch_size, epochs=epoch, verbose=verbose)
+        self.total_model.fit(x, y, sample_weight=sample_weights, batch_size=self.batch_size, epochs=epoch,
+                             verbose=verbose)
 
     def predict_single_state(self, state, mode='voting', std='both', head_num=None):
         """
@@ -166,7 +174,7 @@ class Agent:
     def __init__(self, input_dim, action_count, head_count, name, steps_before_learning=10000, epsilon=1,
                  epsilon_decay=0.00000099, epsilon_min=0.01, batch_size=32, target_update_intervall=10000,
                  memory_capacity=1000000, alpha=0.00025, shared_exp=0.8, gamma=0.99, mode="conv",
-                 save_interval=1000000, save_big_path="/big/h/haemmerle/", save_memory_multiplier = 0.1):
+                 save_interval=1000000, save_big_path="/big/h/haemmerle/", save_memory_multiplier=0.1):
         self.save_interval = save_interval
         self.save_memory_multiplier = save_memory_multiplier
         self.save_big_path = save_big_path
@@ -184,8 +192,10 @@ class Agent:
         self.head_count = head_count
         self.batch_size = batch_size
         self.target_update_intervall = target_update_intervall
-        self.online_network = Brain(input_dim, action_count, head_count, alpha=alpha, mode=mode, batch_size=self.batch_size)
-        self.target_network = Brain(input_dim, action_count, head_count, alpha=alpha, mode=mode, batch_size=self.batch_size)
+        self.online_network = Brain(input_dim, action_count, head_count, alpha=alpha, mode=mode,
+                                    batch_size=self.batch_size)
+        self.target_network = Brain(input_dim, action_count, head_count, alpha=alpha, mode=mode,
+                                    batch_size=self.batch_size)
         self.memory = Memory(memory_capacity, head_count, shared_exp)
 
     def load_model(self):
@@ -271,9 +281,10 @@ class Agent:
         # ending states of actions in batch, unless finalstate, then 0
 
         predictions = numpy.hstack(self.online_network.total_model.predict(states))
+        predictions_end = numpy.hstack(self.online_network.total_model.predict(ending_states))
         predictions_target = numpy.hstack(self.target_network.total_model.predict(ending_states))
         x = numpy.zeros(((batch_length,) + self.input_dim))
-        y = numpy.zeros((batch_length, self.action_count*self.head_count))
+        y = numpy.zeros((batch_length, self.action_count * self.head_count))
 
         for i in range(batch_length):
             sample, mask = batch[i]
@@ -283,6 +294,7 @@ class Agent:
             end_state = sample[3]
 
             t = predictions[i]
+            t_e = predictions_end[i]
             if end_state is None:
                 for j in range(self.head_count):
                     if mask[j] == 1:
@@ -291,20 +303,21 @@ class Agent:
                 target_pred = predictions_target[i]
                 for j in range(self.head_count):
                     if mask[j] == 1:
-                        #make temporary t of just this head
-                        t_tmp = t[j*self.action_count:(j+1)*self.action_count]
+                        # make temporary t of just this head
+                        t_tmp = t[j * self.action_count:(j + 1) * self.action_count]
+                        t_e_tmp = t_e[j * self.action_count:(j + 1) * self.action_count]
                         # make temporary predictions for just this head
-                        target_pred_tmp = target_pred[j*self.action_count:(j+1)*self.action_count]
-                        #adjust the reward for the action taken to be the reward acc. to ddqn
-                        #print("numpy.amax:{}".format(numpy.argmax(t_tmp)))
-                        t_tmp[action] = reward + self.gamma * target_pred_tmp[numpy.argmax(t_tmp)]
-                        #write it back to the t
-                        t[j*self.action_count:(j+1)*self.action_count] = t_tmp
+                        target_pred_tmp = target_pred[j * self.action_count:(j + 1) * self.action_count]
+                        # adjust the reward for the action taken to be the reward acc. to ddqn
+                        # print("numpy.amax:{}".format(numpy.argmax(t_tmp)))
+                        t_tmp[action] = reward + self.gamma * target_pred_tmp[numpy.argmax(t_e_tmp)]
+                        # write it back to the t
+                        t[j * self.action_count:(j + 1) * self.action_count] = t_tmp
             x[i] = state
             y[i] = t
-        #split into arrays for each head
-        y = numpy.hsplit(y,self.head_count)
+        # split into arrays for each head
+        y = numpy.hsplit(y, self.head_count)
         weights = [m for o, m in batch]
         weights = numpy.array(weights).T
-        #self.online_network.train(x, y)
+        # self.online_network.train(x, y)
         self.online_network.train(x, y, weights)
